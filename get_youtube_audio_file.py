@@ -22,7 +22,9 @@ import urllib.request
 from time import sleep
 import youtube_dl
 
-
+APP_NAME = "get_youtube_audio_file.py"
+APP_AUTHOR = "Fmuaddib"
+VERSION = "v1.1.1"
 
 ## RETRY DECORATOR CLASS
 ## Example:
@@ -256,6 +258,12 @@ if __name__ == '__main__':
 		# Read the URL from the command line
 		url = sys.argv[1]
 
+		print("GET YOUTUBE AUDIO FILE by Fmuaddib")
+		print("Version: {}".format(VERSION))
+		print("USAGE:")
+		print("       SINGLE: get_youtube_audio_file.py <YOUTUBE URL>")
+		print("       BATCH:  get_youtube_audio_file.py urls.txt")
+		print()
 
 		## If previous log files exist, delete them ##
 		if os.path.isfile(log_file_name):
