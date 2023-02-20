@@ -6,7 +6,7 @@
     by Fmuaddib
 
 FILENAME: get_youtube_audio_file.py
-VERSION: 1.3.2
+VERSION: 1.4.0
 AUTHOR: Fmuaddib
 LICENSE: MIT
 '''
@@ -20,7 +20,7 @@ from pathlib import Path
 import urllib
 import urllib.request
 from time import sleep
-import youtube_dl
+import yt_dlp
 from pydantic import BaseModel, HttpUrl, ValidationError
 import embed_cover
 import enc2mp3
@@ -31,7 +31,7 @@ class InputURL(BaseModel):
 
 APP_NAME = "get_youtube_audio_file.py"
 APP_AUTHOR = "Fmuaddib"
-VERSION = "1.3.2"
+VERSION = "1.4.0"
 
 ## RETRY DECORATOR CLASS
 ## Example:
@@ -169,7 +169,8 @@ def append_lines_to_log_file(log_file_name, lines_to_append):
 @catch(max=5, callback=callback)
 def download_url(url, ydl_opts):
                 print("\nTrying to Download Audio From {}.".format(url))
-                youtube_dl.YoutubeDL(ydl_opts).download([url])
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
 
 completed_files = set()
 completed_files_abspath = set()
@@ -412,4 +413,3 @@ if __name__ == '__main__':
 
 
 
-        
