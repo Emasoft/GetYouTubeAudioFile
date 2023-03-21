@@ -6,7 +6,7 @@ ENCODE TO MP3 - AUDIO FORMAT CONVERTER
     by Fmuaddib
 
 FILENAME: enc2mp3.py
-VERSION: 1.2.1
+VERSION: 1.3.0
 AUTHOR: Fmuaddib
 LICENSE: MIT
 '''
@@ -21,7 +21,7 @@ from pathlib import PurePath
 
 APP_NAME = "enc2mp3.py"
 APP_AUTHOR = "Fmuaddib"
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 LOG_FILE_NAME = Path("converted_filenames_log.txt")
 LOG_COMPLETED_FILENAME = Path("files_completed_log.txt")
@@ -30,10 +30,11 @@ config = {
         "CONTAINER": 'mp3',
         "BITRATE": 0,
         "FREQUENCY": 0,
+#        "BITDEPTH" : 0,
         "NORMALIZE": False,
         "DONT_KEEP_ORIGINALS": False,
         "VBR": False,
-        "SUPPORTEDTYPES": ('.3gp', '.aac', '.ac3', '.aiff', '.asf', '.avi', '.caf', '.dff', '.dsf', '.dts', '.f4v', '.flac', '.flv', '.hevc', '.m4a', '.m4b', '.m4r', '.maud', '.mka', '.mkv', '.mov', '.mp2', '.mp4', '.mpeg', '.mpg', '.oga', '.ogg', '.opus', '.ts', '.tta', '.vob', '.voc', '.w64', '.wav', '.webm', '.wma', '.wmv'),
+        "SUPPORTEDTYPES": ('.3gp', '.aac', '.ac3', '.aiff', '.asf', '.avi', '.caf', '.dff', '.dsf', '.dts', '.f4v', '.flac', '.flv', '.hevc', '.m4a', '.m4b', '.m4r', '.maud', '.mka', '.mkv', '.mov', '.mp2', '.mp3', '.mp4', '.mpeg', '.mpg', '.oga', '.ogg', '.opus', '.ts', '.tta', '.vob', '.voc', '.w64', '.wav', '.webm', '.wma', '.wmv'),
         "SAMPLEFORMAT": 'original',
         "FORCE_REENCODING": False,
         "TRY_REMUXING": False,       #Using stream copy to remux (no re-encoding)
@@ -50,6 +51,7 @@ class Parameters():
         config_container = config['CONTAINER']
         config_bitrate = config['BITRATE']
         config_frequency = config['FREQUENCY']
+#        config_bitdepth = config['BITDEPTH']
         config_normalize = config['NORMALIZE']
         config_sampleformat = config['SAMPLEFORMAT']
         config_dont_keep = config['DONT_KEEP_ORIGINALS']
@@ -85,12 +87,13 @@ def main():
         parser.add_argument('-l', '--listfile', type=str, default=None, help='Path to .txt file with a List of filenames to convert (default: all files in input folder)')
         parser.add_argument('-o', '--output', type=str, default=Path.cwd(), help='Output folder (default: current folder)')
         parser.add_argument('-b', '--bitrate', default=config['BITRATE'], type=int, help='Preferred bitrate for audio files in kb/s (default: auto)')
-        parser.add_argument('-f', '--frequency', default=config['FREQUENCY'], type=int, help='Preferred frequency for audio files in Hz (default: original)')
+        parser.add_argument('-f', '--frequency', default=config['FREQUENCY'], type=int, help='Preferred frequency for audio files in Hz (example: 44100) (default: original)')
+#        parser.add_argument('-d', '--bitdepth', default=config['BITDEPTH'], type=int, help='Preferred bitdepth for audio files in bits (original, 16, 32) (default: original)')        
         parser.add_argument('-n', '--normalize', default=config['NORMALIZE'], help='Normalize Volume levels (option -af "loudnorm" in FFMpeg) (default: False)', action="store_true")
-        parser.add_argument('-dk', '--dont-keep', default=config['DONT_KEEP_ORIGINALS'], help='Don\'t Keep original files (default: False)', action="store_true")
+        parser.add_argument('-k', '--dont-keep', default=config['DONT_KEEP_ORIGINALS'], help='Don\'t Keep original files (default: False)', action="store_true")
         parser.add_argument('-v', '--vbr', default=config['VBR'], help='Encode audio with variable bitrate (default: False)', action="store_true")
-        parser.add_argument('-s', '--sampleformat', default=config['SAMPLEFORMAT'], help='Audio sampling format (original, s16p, s32p, fltp) (default: original)', choices=["original", "s16p", "s32p", "fltp"], metavar="original/s16p/s32p/fltp")
-        parser.add_argument('-c', '--container', default=config['CONTAINER'], help='Container file format ( mp3, m4a, caf) (default: mp3)', choices=["mp3", "m4a", "caf"], metavar="mp3/m4a/caf")
+        parser.add_argument('-s', '--sampleformat', default=config['SAMPLEFORMAT'], help='Audio sampling format (original, s16, s16p, s32, s32p, fltp) (default: original)', choices=["original", "s16", "s16p", "s32", "s32p", "fltp"], metavar="original/s16/s16p/s32/s32p/fltp")
+        parser.add_argument('-c', '--container', default=config['CONTAINER'], help='Container file format ( mp3, m4a, caf, flac) (default: mp3)', choices=["mp3", "m4a", "caf", "flac"], metavar="mp3/m4a/caf/flac")
         parser.add_argument('-m', '--try_remuxing', default=config['TRY_REMUXING'], help='Try to use stream copy to remux audio leaving the original codec (avoiding re-encoding if possible) (default: False)', action="store_true")
         parser.add_argument('-r', '--force_reencoding', default=config['FORCE_REENCODING'], help='Force reencoding when the input and output file extensions are the same (default: False)', action="store_true")
         parser.add_argument('-x', '--omit_suffix', default=config['OMIT_SUFFIX'], help='Do not add the "(was XXX)" suffix to the converted file name (default: False)', action="store_true")
@@ -119,9 +122,10 @@ def main():
         params.listfile_path = args.listfile
         params.config_bitrate = args.bitrate
         params.config_frequency = args.frequency
+        #params.config_bitdepth = args.bitdepth
         params.config_normalize = args.normalize
         params.config_sampleformat = args.sampleformat
-        params.config_container = args.container
+        params.config_container = args.container.lower()
         params.config_dont_keep = args.dont_keep
         params.config_vbr = args.vbr
         params.config_supported_types = config['SUPPORTEDTYPES']
@@ -257,7 +261,9 @@ def load_list_file(list_file_name):
                 with open(list_file_name, encoding='utf8') as f:
                         lines = f.readlines()
                         clean_lines = set([line.rstrip().strip() for line in lines])
-                        print(str(len(clean_lines)+1) + " files received as input.")
+                        print(str(len(clean_lines)+1) + " files received as input:")
+                        for fline in clean_lines:
+                            print(str(fline))
                 return clean_lines
         else:
                 print("Error : " + str(list_file_name) + " is not a valid file!")
@@ -338,6 +344,7 @@ def convert_folder(params):
 
 
 def launch_task(file_name, params):
+        print(f"Processing File {str(file_name)}")
         if Path(file_name).suffix in tuple(params.config_supported_types):
                 file_name = Path(file_name)
                 file_name_ext = Path(file_name).suffix.replace('.','')
@@ -385,12 +392,15 @@ def ExecuteFFMpeg(input_file, output_file, params):
                 codecaudio_cmd = '-c:a libmp3lame'
                 maxbitrate = 320
                 minbitrate = 192
+                bitrate_cmd = None
                 faststart_cmd = None
                 container_cmd = '-f mp3'
+                lossless = False
         elif params.config_container == 'm4a' or params.config_container == 'mp4' or params.config_container == 'm4b' or params.config_container == 'mov':
                 codecaudio_cmd = '-c:a aac'
                 maxbitrate = 270
                 minbitrate = 160
+                bitrate_cmd = None
                 faststart_cmd = "-movflags +faststart"
                 # .m4a is not a recommended ISO extension
                 # but is typically used by Apple. It has
@@ -399,16 +409,31 @@ def ExecuteFFMpeg(input_file, output_file, params):
                 # FFmpeg format flag for m4a is '-f ipod'.
                 # But it is best to use '-f mp4' anyway.
                 container_cmd = '-f mp4'
+                lossless = False
         elif params.config_container == 'caf':
                 codecaudio_cmd = '-c:a aac'
                 maxbitrate = 270
                 minbitrate = 160
+                bitrate_cmd = None
                 faststart_cmd = None
                 container_cmd = '-f caf'
+                lossless = False
+        elif params.config_container == 'flac':
+                codecaudio_cmd = '-c:a flac'
+                maxbitrate = None
+                minbitrate = None
+                bitrate_cmd = None
+                faststart_cmd = None
+                container_cmd = None
+                lossless = True
+        else:
+                print(f"ERROR : Output format {params.config_container} not supported.")
+                sys.exit(1)
+                
 
 
         ## BITRATE COMMAND
-        if params.config_vbr is True:
+        if params.config_vbr is True and lossless is False:
                 bitrate_cmd = '-q:a 1'
         else:
                 if params.config_bitrate == 0:
@@ -420,12 +445,27 @@ def ExecuteFFMpeg(input_file, output_file, params):
                                 params.config_bitrate = minbitrate
                         bitrate_cmd = '-b:a '+ str(params.config_bitrate)+'k'
 
+        # FREQUENCY AND BIT DEPTH FILTERS
+        # "16 and 24 bit samples" is referring to "Bit Depth",
+        # as opposed to "Bit Rate". "Bit Depth" is sometimes also
+        # referred to (By VLC for example) as "Bits per Sample".
+        # FFmpeg's FLAC encoder supports sample bit depths of 16 and 24 bits, 
+        # the latter padded to 32-bit. So for 24-bit, 
+        # you will have to use a filter in-between.
+        # EXAMPLES:
+        # ffmpeg -i in.wav -af aformat=s16:44100 out.flac
+        # ffmpeg -i in.wav -af aformat=s32:176000 out.flac
+        # freq_cmd = '-af aformat=s{str(params.config_bitdepth)}:' + str(params.config_frequency)
+        # 
+        
+        
+        
         ## FREQUENCY RESAMPLING COMMAND
         if params.config_frequency == 0:
                 freq_cmd = None
         else:
                 freq_cmd = '-ar ' + str(params.config_frequency)
-
+        
         ## SAMPLING FORMAT COMMAND
         if params.config_sampleformat == 'original':
                 samplefmt_cmd = None
@@ -445,7 +485,7 @@ def ExecuteFFMpeg(input_file, output_file, params):
                 if params.config_container == 'mp3':
                         if params.config_force_reencoding is False:
                                 #codecaudio_cmd = '-c:a copy'
-                                codecaudio_cmd = None
+                                codecaudio_cmd = '-c:a libmp3lame'
                                 bitrate_cmd = None
                                 faststart_cmd = None
                 elif params.config_container == 'm4a' or params.config_container == 'mp4' or params.config_container == 'm4b' or params.config_container == 'mov':
@@ -460,13 +500,29 @@ def ExecuteFFMpeg(input_file, output_file, params):
                                 codecaudio_cmd = None
                                 bitrate_cmd = None
                                 faststart_cmd = None
+                elif params.config_container == 'flac':
+                        if params.config_force_reencoding is False:
+                                #codecaudio_cmd = '-c:a copy'
+                                codecaudio_cmd = None
+                                bitrate_cmd = None
+                                faststart_cmd = None
 
-
-
+        exclude_video = "-vn" # avoid using this because it strips the thumbnail image along with the video.
+        
+        exclude_subtitles = "-sn" # no need for subtitles in audio
+        
+        mapping_cmd = "-map 0:v? -map -0:V? -map 0:a:0 -c:v copy" # exclude only video stream ('V') but not images, covers, and attachments.
+        
+        metadata_cmd = "-map_metadata g" # default mapping metadata as general metadata. (not needed for now).
+        
+        recast_cmd = "-recast_media" # Allow forcing a decoder of a different media type than the one detected
+                                     # or designated by the demuxer. Useful for decoding media data muxed
+                                     # as data streams. (not needed for now).
 
         print("OUTPUT FILE:  " + str(output_file))
 
         # EXECUTE FFMPEG
+        # https://trac.ffmpeg.org/wiki/Map
         # encodings examples:
         # MP3 320k cbr = '-c:a libmp3lame -b:a 320k'
         # MP3 190-250 vbr = '-c:a libmp3lame -q:a 1'
@@ -474,9 +530,11 @@ def ExecuteFFMpeg(input_file, output_file, params):
         # MP4 270k cbr = '-c:a aac -b:a 270k -movflags +faststart'
         # MP4 192k cbr = '-c:a aac -b:a 192k -movflags +faststart'
         # MP4 auto = '-c:a aac -b:a 270k -movflags +faststart'
+        # ffmpeg -i "input.flac" -map 0 -map -0:V -c:v copy -map_metadata g -y "output.mkv"
+        # ffmpeg -i "input.mp4" -map 0 -map -0:V -c:v copy -map_metadata g -y "output.flac"
         # EXAMPLE:
         # WEBM TO MP4 = ffmpeg -v verbose -i "Sia.Unstoppable.webm" -vn -c:a aac -b:a 192k -movflags +faststart -y "Sia.Unstoppable (was webm).m4a"
-        command_parts = [input_file_cmd, '-vn', codecaudio_cmd, bitrate_cmd, faststart_cmd, samplefmt_cmd, norm_cmd, freq_cmd, "-y", container_cmd, output_file_cmd]
+        command_parts = [input_file_cmd, exclude_subtitles, mapping_cmd, codecaudio_cmd, bitrate_cmd, faststart_cmd, samplefmt_cmd, norm_cmd, freq_cmd, "-y", output_file_cmd]
         command_part_one = "ffmpeg"
         command_full = command_part_one + " "
 
@@ -512,5 +570,4 @@ def ExecuteFFMpeg(input_file, output_file, params):
 
 if __name__ == '__main__':
         main()
-
         

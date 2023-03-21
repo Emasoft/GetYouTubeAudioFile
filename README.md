@@ -15,7 +15,8 @@ To install them, run the following commands before executing the python scripts:
     pip -v install -U yt-dlp
     pip -v install -U pydantic
     pip -v install -U mutagen
-    
+
+Be sure they are the latest versions.
  
 
 

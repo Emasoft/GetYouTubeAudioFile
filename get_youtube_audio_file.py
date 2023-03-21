@@ -6,7 +6,7 @@
     by Fmuaddib
 
 FILENAME: get_youtube_audio_file.py
-VERSION: 1.4.0
+VERSION: 1.5.2
 AUTHOR: Fmuaddib
 LICENSE: MIT
 '''
@@ -14,6 +14,7 @@ LICENSE: MIT
 
 import os
 import sys
+import re
 import argparse
 from io import StringIO
 from pathlib import Path
@@ -31,7 +32,14 @@ class InputURL(BaseModel):
 
 APP_NAME = "get_youtube_audio_file.py"
 APP_AUTHOR = "Fmuaddib"
-VERSION = "1.4.0"
+VERSION = "1.5.2"
+
+SUBTITLES_REGEX_CODES = 'en.*,fr.*,de.*,it.*,pt.*,es.*,ar.*,ja.*,ko.*,zh.*,da.*,nl.*,ca.*,el.*,he.*,hi.*,no.*,pl.*,ro.*,ru.*,sv.*,ua.*,vi.*,tr.*,th.*,id.*,is.*,hu.*,ga.*,fa.*,et.*,cs.*,hr.*,eu.*,bg.*,sq.*,af.*,be.*,lt.*,ms.*,mk.*,ku.*,ml.*,nn.*,nb.*,rm.*,sr.*,sk.*,sl.*,sb.*,ur.*,cy.*,ji.*,zu.*,tn.*,xh.*,ve.*,ts.*,pa.*,mt.*,lv.*,-live_chat'
+SUBTITLES_DEFAULT_REGEX_CODES = '"en.*,it.*,fr.*,ja.*,zh.*,-live_chat"'
+
+OUTPUT_FILES_SUFFIXES = {'.mov', '.mp4', '.m4a', '.m4b', '.MOV', '.MP4', '.M4A', '.M4B','.mp3', '.MP3','.webm', '.WEBM','.mkv', '.MKV','.caf','.CAF'}
+FORMATS_SUPPORTING_THUMB_EMBED = {'.mov', '.mp4', '.m4a', '.m4b', '.MOV', '.MP4', '.M4A', '.M4B','.mp3', '.MP3','.mkv', '.MKV'}
+
 
 ## RETRY DECORATOR CLASS
 ## Example:
@@ -176,15 +184,44 @@ completed_files = set()
 completed_files_abspath = set()
 final_files_list = set()
 
+def match_format_type_suffix(input_text):
+    #print(f"DEBUG: >{input_text}< match test regex:")
+    pattern = re.compile(r"^\.f[0-9]+$", re.IGNORECASE)
+    if pattern.match(input_text):
+        #print("SUFFIX IS TRUE MATCH")
+        return True
+    else:
+        #print("SUFFIX IS NO MATCH")
+        return False
+    
+def remove_format_suffix(file_name):
+    #print(f"ORIGINAL FILENAME: {file_name}")
+    extens=Path(file_name).suffix
+    #print(f"ORIGINAL EXTENSION: {extens}")
+    original_filename = Path(file_name)
+    file_name = Path(file_name).with_suffix("")
+    #print(f"REMOVED SUFFIX: {file_name}")
+    if match_format_type_suffix(file_name.suffix):
+        file_name = Path(file_name).with_suffix("")
+    file_name = Path(str(file_name)+extens)
+    #print(f"READDED SUFFIX: {file_name}")
+    return file_name
+
 def my_hook(d):
 
         if d['status'] == 'finished':
                 file_tuple = os.path.split(os.path.abspath(d['filename']))
                 file_name = file_tuple[1]
                 print("Done downloading {}".format(file_name))
+                file_name = remove_format_suffix(file_name)
                 write_filename_to_txt_log(file_name)
-                completed_files.add(file_name)
-                completed_files_abspath.add(os.path.abspath(d['filename']))
+                if Path(file_name).suffix in OUTPUT_FILES_SUFFIXES:
+                    print()
+                    #print(f"ADDING {file_name} to COMPLETED_FILES list.")
+                    completed_files.add(file_name)
+                    #print(f"ADDING {os.path.abspath(d['filename'])} to COMPLETED_FILES_ABSPATH list.")
+                    completed_files_abspath.add(os.path.abspath(d['filename']))
+                    print()
 
         if d['status'] == 'downloading':
                 file_tuple = os.path.split(os.path.abspath(d['filename']))
@@ -201,6 +238,10 @@ def get_list_of_urls_from_file(file_name):
 def replace_extension(filename, ext, expected_real_ext=None):
     name, real_ext = os.path.splitext(filename)
     return '{0}.{1}'.format(name if not expected_real_ext or real_ext[1:] == expected_real_ext else filename, ext)
+    
+def change_filename_extension(filename, new_ext):
+    name, old_ext = os.path.splitext(filename)
+    return '{0}.{1}'.format(name, new_ext)
 
 
 # Specify command line options here
@@ -222,6 +263,8 @@ ydl_opts = {
             "outtmpl":"%(title)s.%(ext)s",
             "source_address":"0.0.0.0",
             "sleep_interval":5,
+            "sleep_interval_requests":10,
+            "sleep_interval_subtitles": 15,
             "max_sleep_interval":12,
             "restrictfilenames":False,
             "hls_prefer_native":False,
@@ -272,10 +315,15 @@ ydl_opts = {
             "listsubtitles": False,
             "socket_timeout": 20,
             "postprocessors": [{
+#                'key': 'FFmpegVideoRemuxer',
+#                'preferedformat': 'mp4',
+#            },{
 #                'key': 'EmbedThumbnail',
 #                'already_have_thumbnail': False,
 #            },{
                 'key': 'FFmpegMetadata',
+                'add_chapters': True,
+                'add_metadata': True,
             }],
         }
 
@@ -288,12 +336,15 @@ def input_and_output_format_matches(savedfile, file_format):
         mp4_set = {'mov', 'mp4', 'm4a', 'm4b', 'MOV', 'MP4', 'M4A', 'M4B'}
         mp3_set = {'mp3', 'MP3'}
         webm_set = {'webm', 'WEBM'}
+        mkv_set = {'mkv', 'MKV'}
         
         if file_format in mp4_set and input_extension in mp4_set:
             return True
         elif file_format in mp3_set and input_extension in mp3_set:
             return True
         elif file_format in webm_set and input_extension in webm_set:
+            return True
+        elif file_format in mkv_set and input_extension in mkv_set:
             return True
         elif file_format.lower() == input_extension.lower():
             return True
@@ -328,23 +379,90 @@ if __name__ == '__main__':
         parser.add_argument('input', type=str, help='URL of the Youtube video or playlist. Alternatively the path to a .txt file containing a list of URLS.')
         parser.add_argument('-k', '--keep_thumbs', default=False, help='Do not delete the thumb image files after embedding them in the audio files (default: False)', action="store_true")
         parser.add_argument('-c', '--continue_mode', default=False, help='If a "downloaded.txt" file is found, do not redownload the files recorded in it as already downloaded (default: False)', action="store_true")
-        parser.add_argument('-f', '--format_conversion', default='original', help='Force conversion to specific audio file format (original, mp3, m4a, caf) (default: original)', choices=["original", "mp3", "m4a", "caf"], metavar="original/mp3/m4a/caf")
+        parser.add_argument('-f', '--format_conversion', default='original', help='Force conversion to specific container file format (original, mp3, m4a, caf, mp4video, mkvvideo) (default: original)', choices=["original", "mp3", "m4a", "caf", "mp4video", "mkvvideo"], metavar="original/mp3/m4a/caf/mp4video/mkvvideo")
         parser.add_argument('-m', '--try_remuxing', default=False, help='When converting to a different format try to use stream copy to remux audio leaving the original codec (avoiding re-encoding if possible) (default: False)', action="store_true")
         parser.add_argument('-b', '--bitrate', default=0, type=int, help='Preferred constant bitrate for audio files in kb/s (default: auto)')
         parser.add_argument('-v', '--vbr', default=False, help='Encode audio with variable bitrate (default: False)', action="store_true")
+        parser.add_argument('-s', '--subtitles', default=False, help='Embed ALL subtitles available when downloading video (default: False)', action="store_true")
         args = parser.parse_args()
 
         # Read the arguments from the parser
         url = args.input
         keep_thumbs = args.keep_thumbs
         continue_mode = args.continue_mode
-        format_conversion =  args.format_conversion
+        format_conversion =  args.format_conversion.lower()
         bitrate = args.bitrate
         vbr_mode = args.vbr
         try_remuxing = args.try_remuxing
+        embed_all_subtitles = args.subtitles
         
 
+        if format_conversion == "mp4video":
+            ydl_opts['format'] = "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080] / bv*[height<=1080]+ba/b[height<=1080]"
+            ydl_opts['merge_output_format'] = 'mp4'
+            ydl_opts['writeautomaticsub'] = True
+            if embed_all_subtitles:
+                ydl_opts['allsubtitles'] = True
+            else:
+                ydl_opts['subtitleslangs'] = "en" #SUBTITLES_DEFAULT_REGEX_CODES
+            ydl_opts['embedsubtitles'] = True
+            ydl_opts['writesubtitles'] = True
+            ydl_opts['forcethumbnail'] = False
+            ydl_opts['extractaudio'] = False
+            ydl_opts['final_ext'] = 'mp4'
+            ydl_opts['writeinfojson'] = True
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegVideoRemuxer',
+                'preferedformat': 'mp4',
+            },{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            },{
+                'key': 'FFmpegEmbedSubtitle',
+                'already_have_subtitle': False,
+            },{
+                'key': 'FFmpegMetadata',
+                'add_chapters': True,
+                'add_metadata': True,
+                'add_infojson': False,
+            },{
+                'key': 'EmbedThumbnail',
+                'already_have_thumbnail': False,
+            }]
 
+        if format_conversion == "mkvvideo":
+            ydl_opts['format'] = "bv*[ext=mkv]+ba[ext=mkv]/b[ext=mkv] / bv*+ba/b"
+            ydl_opts['merge_output_format'] = 'mkv'
+            ydl_opts['writeautomaticsub'] = True
+            if embed_all_subtitles:
+                ydl_opts['allsubtitles'] = True
+            else:
+                ydl_opts['subtitleslangs'] = "en" #SUBTITLES_DEFAULT_REGEX_CODES
+            ydl_opts['embedsubtitles'] = True
+            ydl_opts['writesubtitles'] = True
+            ydl_opts['forcethumbnail'] = False
+            ydl_opts['extractaudio'] = False
+            ydl_opts['final_ext'] = 'mkv'
+            ydl_opts['writeinfojson'] = True
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegVideoRemuxer',
+                'preferedformat': 'mkv',
+            },{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mkv',
+            },{
+                'key': 'FFmpegEmbedSubtitle',
+                'already_have_subtitle': False,
+            },{
+                'key': 'FFmpegMetadata',
+                'add_chapters': True,
+                'add_metadata': True,
+                'add_infojson': True,
+            },{
+                'key': 'EmbedThumbnail',
+                'already_have_thumbnail': False,
+            }]
+            
 
         ## If previous log files exist, delete them ##
         if os.path.isfile(log_file_name):
@@ -370,7 +488,7 @@ if __name__ == '__main__':
         else:
             # If the argument was an url, get it.
             try:
-                InputURL(input_url=url)
+                InputURL(input_url=str(url))
             except ValidationError as e:
                 print("ARGUMENT ERROR - Invalid URL: "+ str(url))
                 print(e)
@@ -380,31 +498,56 @@ if __name__ == '__main__':
                 
         # OPTIONALLY CONVERT AND EMBED COVER ART
         for savedfile in completed_files:
-            savedfile = str(savedfile)
-            if format_conversion == "original" or input_and_output_format_matches(savedfile, format_conversion):
-                if savedfile.lower().endswith('mp4') or savedfile.lower().endswith('m4a') or savedfile.lower().endswith('m4b') or savedfile.lower().endswith('mov') or savedfile.lower().endswith('mp3'):
-                    embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
+            #print(str(completed_files))
+            savedfile = remove_format_suffix(savedfile)
+            if format_conversion == 'mp4video':
+                savedfile = change_filename_extension(savedfile, 'mp4')
+            if format_conversion == 'mkvvideo':
+                savedfile = change_filename_extension(savedfile, 'mkv')
+            if os.path.isfile(savedfile):
+                savedfile = str(savedfile)
+                if format_conversion == "original" or input_and_output_format_matches(savedfile, format_conversion):
                     savedfile = rename_audio_file_if_needed(savedfile)
+                    if Path(savedfile).suffix in FORMATS_SUPPORTING_THUMB_EMBED:
+                        embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
+                    else:
+                        print("Cannot embed cover image in '" + str(savedfile) + "' Embedding is only supported for the following formats: mp3, mp4, m4a, m4b, mov, mkv")
                     final_files_list.add(savedfile)
-                print("Cannot embed cover image in '" + str(savedfile) + "' Embedding is only supported for the following formats: mp3, mp4, m4a, m4b, mov")
-            else:
-                if format_conversion == "mp4" or format_conversion == "m4a" or format_conversion == "m4b" or format_conversion == "mov":
-                        savedfile = enc2mp3.convert_to_format(savedfile, 'mp4', vbr_mode, bitrate, try_remuxing)
-                        print("EMBEDDING cover in file: " + savedfile)
-                        embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
-                        savedfile = rename_audio_file_if_needed(savedfile)
-                        final_files_list.add(savedfile)
-                elif format_conversion == "mp3":
-                        savedfile = enc2mp3.convert_to_format(savedfile, 'mp3', vbr_mode, bitrate, try_remuxing)
-                        print("EMBEDDING cover in file: " + savedfile)
-                        embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
-                        savedfile = rename_audio_file_if_needed(savedfile)
-                        final_files_list.add(savedfile)
                 else:
-                        print("ERROR: conversion in '" + format_conversion + "' format not supported.")
+                    if format_conversion == "mp4" or format_conversion == "m4a" or format_conversion == "m4b" or format_conversion == "mov":
+                            savedfile = enc2mp3.convert_to_format(savedfile, 'mp4', vbr_mode, bitrate, try_remuxing)
+                            print("EMBEDDING cover in file: " + savedfile)
+                            embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
+                            savedfile = rename_audio_file_if_needed(savedfile)
+                            final_files_list.add(savedfile)
+                    elif format_conversion == "mp3":
+                            savedfile = enc2mp3.convert_to_format(savedfile, 'mp3', vbr_mode, bitrate, try_remuxing)
+                            print("EMBEDDING cover in file: " + savedfile)
+                            embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
+                            savedfile = rename_audio_file_if_needed(savedfile)
+                            final_files_list.add(savedfile)
+                    elif format_conversion == "mp4video":
+                            #  MP4 video format, no conversion needed
+                            #embed_cover.embed_with_ffmpeg(savedfile, keep_thumbs)
+                            #savedfile = rename_audio_file_if_needed(savedfile)
+                            #savedfile = change_filename_extension(savedfile, 'mp4')
+                            final_files_list.add(savedfile)
+                    elif format_conversion == "mkvvideo":
+                            #  MKV video format, no conversion needed
+                            #embed_cover.embed_with_mkv(savedfile, keep_thumbs)
+                            #savedfile = rename_audio_file_if_needed(savedfile)
+                            #savedfile = change_filename_extension(savedfile, 'mkv')
+                            final_files_list.add(savedfile)
+                    else:
+                            print("ERROR: conversion in '" + format_conversion + "' format not supported.")
+                            final_files_list.add(savedfile)
+            else:
+                print("ERROR - file not found: " + str(savedfile))
                         
         for filename_record in final_files_list:
-                write_filename_to_txt_final_output_log(filename_record)
+                print(f"FILE {str(filename_record)} successfully SAVED.")
+                if Path(filename_record).suffix in OUTPUT_FILES_SUFFIXES:
+                        write_filename_to_txt_final_output_log(filename_record)
                     
 
 
@@ -413,3 +556,4 @@ if __name__ == '__main__':
 
 
 
+        
