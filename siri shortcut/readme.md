@@ -40,8 +40,7 @@ This shortcut was inspired by [Music Downloader](https://routinehub.co/shortcut/
 INFO  
 ====
  - First Release 2022-07-17 v1.0.0  
- - Latest Release 2023-03-20 v1.5.2  
+ - Latest Release 2023-03-22 v1.5.3  
  - Author: [u/fremenmuaddib](https://www.reddit.com/user/fremenmuaddib/)  
  - This shortcut is canonically available on RoutineHub at https://routinehub.co/shortcut/12578/  
- 
  
