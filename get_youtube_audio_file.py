@@ -6,7 +6,7 @@
     by Fmuaddib
 
 FILENAME: get_youtube_audio_file.py
-VERSION: 1.5.2
+VERSION: 1.5.3
 AUTHOR: Fmuaddib
 LICENSE: MIT
 '''
@@ -32,7 +32,7 @@ class InputURL(BaseModel):
 
 APP_NAME = "get_youtube_audio_file.py"
 APP_AUTHOR = "Fmuaddib"
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 
 SUBTITLES_REGEX_CODES = 'en.*,fr.*,de.*,it.*,pt.*,es.*,ar.*,ja.*,ko.*,zh.*,da.*,nl.*,ca.*,el.*,he.*,hi.*,no.*,pl.*,ro.*,ru.*,sv.*,ua.*,vi.*,tr.*,th.*,id.*,is.*,hu.*,ga.*,fa.*,et.*,cs.*,hr.*,eu.*,bg.*,sq.*,af.*,be.*,lt.*,ms.*,mk.*,ku.*,ml.*,nn.*,nb.*,rm.*,sr.*,sk.*,sl.*,sb.*,ur.*,cy.*,ji.*,zu.*,tn.*,xh.*,ve.*,ts.*,pa.*,mt.*,lv.*,-live_chat'
 SUBTITLES_DEFAULT_REGEX_CODES = '"en.*,it.*,fr.*,ja.*,zh.*,-live_chat"'
